@@ -3,6 +3,7 @@ import ReActTrace from '@/components/visualizations/ReActTrace';
 import { ALGORITHMS } from '@/config';
 import { agenticRAGDemo, agenticReActTrace } from './demo-data';
 import { agenticRAGCode } from './code-snippet';
+import { agenticLayout } from './layout';
 
 const meta = ALGORITHMS.find((a) => a.id === 'agentic')!;
 
@@ -21,6 +22,7 @@ export default function AgenticRAG() {
       codeSnippets={agenticRAGCode}
       specialVisualization={specialVisualization}
       overviewText={meta.overviewText}
+      pipelineLayout={agenticLayout}
     />
   );
 }

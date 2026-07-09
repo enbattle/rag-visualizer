@@ -43,6 +43,7 @@ Always run `npm run build` and `npm run lint` before finalizing any task.
 - All colors and surfaces must use the design token variables defined in `src/styles/globals.css` (`--color-bg-primary`, `--color-text-secondary`, etc.) — never hardcode hex values in component styles.
 - Dark mode is toggled via the `dark` class on `<html>` (managed by `ThemeContext`). Every new visual element must be tested in both themes.
 - Use Tailwind utility classes for layout, spacing, and typography. Reserve inline `style={{}}` for dynamic values not expressible as utilities (e.g., per-algorithm accent colors computed at runtime).
+- **Tailwind JIT gotcha in `src/components/diagram/`**: never build a Tailwind class name via template-string interpolation (e.g. `` `fill-${color}` ``) — Tailwind's static scanner won't see it and the style silently won't ship in the production build. `DiagramNode.tsx`/`DiagramEdge.tsx` sidestep this by either (a) keying into a `Record<NodeKind, string>` of fully-literal class strings, or (b) using raw inline `style={{ fill: hex }}` with hex values instead of Tailwind classes. Follow one of those two patterns for any new per-kind/per-state diagram styling.
 
 ### Error Handling
 
@@ -66,17 +67,32 @@ Both routes render inside `Layout` (`src/components/Layout.tsx`), which provides
 
 ### Algorithm pattern
 
-Every algorithm is self-contained in `src/algorithms/<name>/` with three files:
+Every algorithm is self-contained in `src/algorithms/<name>/` with four files:
 
 - `demo-data.ts` — exports `AlgorithmDemoData`: `AnimationStep[]` (active node/edge ids, explanation text, retrieval updates) + key insight text
+- `layout.ts` — exports a `PipelineLayout` (see below): the static node positions/edge connectivity the diagram draws
 - `code-snippet.ts` — exports `CodeSnippet`: four Python code tabs (fullPipeline, embeddings, vectorSearch, generation)
-- `<Name>.tsx` — imports demo data + code snippet, passes to `AlgorithmWrapper`
+- `<Name>.tsx` — imports demo data + layout + code snippet, passes to `AlgorithmWrapper`
 
-Simple algorithms (no custom visualization) use `AlgorithmFactory` instead of writing a full component. Three algorithms implement `specialVisualization` directly: AgenticRAG (`ReActTrace`), GraphRAG (`KnowledgeGraph`), HyDE (`EmbeddingSpace`) — all in `src/components/visualizations/`.
+Simple algorithms (no custom visualization) use `AlgorithmFactory` instead of writing a full component. Three algorithms implement `specialVisualization` directly: AgenticRAG (`ReActTrace`), GraphRAG (`KnowledgeGraph`), HyDE (`EmbeddingSpace`) — all in `src/components/visualizations/`. These render a *different* dataset (an entity graph, a trace log, an embedding scatter) than the pipeline diagram and stay unchanged alongside it.
 
-`AlgorithmWrapper` (`src/components/algorithm/AlgorithmWrapper.tsx`) drives everything: step-through animation via `useAnimationStep`, retrieval chunk accumulation, the optional special visualization, and the Shiki-highlighted code panel.
+`AlgorithmWrapper` (`src/components/algorithm/AlgorithmWrapper.tsx`) drives everything: step-through animation via `useAnimationStep`, the pipeline diagram, retrieval chunk accumulation, the optional special visualization, and the Shiki-highlighted code panel.
 
-> **No pipeline diagram yet.** `activeNodeIds`/`activeEdgeIds` exist in each step's demo data but nothing currently renders a visual pipeline from them — the walkthrough today is text explanation + retrieval panel + code panel only. A bespoke SVG diagram layer is planned but not built; see `ROADMAP.md` before assuming one exists.
+### Pipeline diagram (`src/components/diagram/`)
+
+Renders the animated node/edge graph above the step explanation card. Highlighting is driven entirely by the `AnimationStep.activeNodeIds`/`activeEdgeIds` fields that already exist on every algorithm's `demo-data.ts` — the diagram layer only adds the *static* structure those ids refer to.
+
+- `types.ts` — `NodeLayout` (id, label, kind, x/y/w/h), `EdgeLayout` (id, from, to, optional `activeWhen`/`fromSide`/`toSide`/`curve`/`bend`), `PipelineLayout` (nodes + edges).
+- `geometry.ts` — pure functions (`anchor`, `edgePath`); no React, no app-specific knowledge.
+- `DiagramNode.tsx` / `DiagramEdge.tsx` — presentational. Nodes: idle/active/visited states, per-`kind` color + icon (`node-*` tokens in `tailwind.config.ts`), glow + radar-ping ring when active. Edges: a permanent dim base pass (topology always faintly visible) plus an active/visited overlay with a `pathLength` draw-in and a traveling packet (native SVG `<animateMotion>`) the moment an edge activates.
+- `PipelineDiagram.tsx` — composition. Takes a `PipelineLayout` + `steps` + `currentStep`, derives per-node/edge state by scanning `activeNodeIds`/`activeEdgeIds` up to the current step (accumulated = "visited", current step = "active"). Shared canvas: `CANVAS = { w: 940, h: 240 }`.
+- `pipelineLayout` is an **optional** prop on `AlgorithmWrapper`/`AlgorithmFactory` — omit it and the diagram block simply doesn't render, which is how the rollout happened one algorithm at a time.
+
+**`activeWhen` — the one non-obvious piece.** An edge id like `'e3'` in `demo-data.ts` doesn't always mean exactly one drawn line. RAG Fusion's `demo-data.ts` collapses a 3-way fan-out into a single id (`'e3'`) and a 4-way fan-in into another (`'e4'`) — see `rag-fusion/layout.ts` for the pattern: author several `EdgeLayout` entries (each its own `id`, `from`, `to`) that all set `activeWhen: ['e3']`, so one step's edge id lights up every line that should visually activate together. Everywhere else `activeWhen` defaults to `[edge.id]` (1:1).
+
+**Reserved/skipped edge ids** (Corrective skips `e6`, Adaptive skips `e2`/`e4`/`e5` — reserved for branches the demo path never takes): only draw edges/nodes that actually appear in some step's `activeNodeIds`/`activeEdgeIds`. Don't invent nodes for untaken branches — there's no id for them in `demo-data.ts` to key off of.
+
+**Loop-back / cyclic edges** (Agentic's ReAct loop, Self-RAG's re-retrieval branch): set `fromSide`/`toSide` to `'top'` or `'bottom'` and `curve: 'loop-back'` so the edge arcs above/below the row instead of drawing a straight line through intervening nodes. Use the optional `bend` override to separate curves that would otherwise overlap when several loop-back edges share the same side of the row — see `agentic/layout.ts` for worked examples with differing `bend` values.
 
 ### Shared config
 
@@ -90,7 +106,8 @@ Simple algorithms (no custom visualization) use `AlgorithmFactory` instead of wr
 
 1. Create `src/algorithms/<name>/` directory containing:
    - `demo-data.ts` exporting an `AlgorithmDemoData`
+   - `layout.ts` exporting a `PipelineLayout` (hand-author node x/y positions and edge connectivity — budget ~30–60 min depending on topology; see the "Pipeline diagram" section above for the `activeWhen`/reserved-id/loop-back conventions)
    - `code-snippet.ts` exporting a `CodeSnippet`
-   - `<Name>.tsx` — the algorithm component using `AlgorithmWrapper` (or `AlgorithmFactory` for simple cases)
+   - `<Name>.tsx` — the algorithm component using `AlgorithmWrapper` (or `AlgorithmFactory` for simple cases), passing `pipelineLayout`
 2. Register the lazy import in `AlgorithmView.tsx`'s `ALGO_COMPONENTS` map
 3. Add a metadata entry to `ALGORITHMS` in `src/config.ts`

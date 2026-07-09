@@ -3,6 +3,7 @@ import EmbeddingSpace from '@/components/visualizations/EmbeddingSpace';
 import { ALGORITHMS } from '@/config';
 import { hydeRAGDemo, hydeEmbeddingPoints } from './demo-data';
 import { hydeRAGCode } from './code-snippet';
+import { hydeLayout } from './layout';
 
 const meta = ALGORITHMS.find((a) => a.id === 'hyde')!;
 const HYPOTHESIS_ANIMATION_PATH = { from: { x: 85, y: 70 }, to: { x: 290, y: 215 } } as const;
@@ -35,6 +36,7 @@ export default function HyDE() {
       codeSnippets={hydeRAGCode}
       specialVisualization={specialVisualization}
       overviewText={meta.overviewText}
+      pipelineLayout={hydeLayout}
     />
   );
 }

@@ -3,6 +3,7 @@ import KnowledgeGraph from '@/components/visualizations/KnowledgeGraph';
 import { ALGORITHMS } from '@/config';
 import { graphRAGDemo, graphRAGNodes, graphRAGEdges } from './demo-data';
 import { graphRAGCode } from './code-snippet';
+import { graphLayout } from './layout';
 
 const meta = ALGORITHMS.find((a) => a.id === 'graph')!;
 
@@ -35,6 +36,7 @@ export default function GraphRAG() {
       codeSnippets={graphRAGCode}
       specialVisualization={specialVisualization}
       overviewText={meta.overviewText}
+      pipelineLayout={graphLayout}
     />
   );
 }

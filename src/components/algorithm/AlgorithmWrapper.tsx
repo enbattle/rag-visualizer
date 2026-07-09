@@ -3,8 +3,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useAnimationStep } from '@/hooks/useAnimationStep';
 import CodePanel from './CodePanel';
 import RetrievalPanel from './RetrievalPanel';
+import PipelineDiagram from '@/components/diagram/PipelineDiagram';
 import { Play, Pause, ChevronLeft, ChevronRight, Lightbulb, X } from 'lucide-react';
 import type { AlgorithmDemoData, ChunkData, CodeSnippet } from './types';
+import type { PipelineLayout } from '@/components/diagram/types';
 
 interface AlgorithmWrapperProps {
   demoData: AlgorithmDemoData;
@@ -12,6 +14,8 @@ interface AlgorithmWrapperProps {
   /** Optional visualization rendered below the step walkthrough (ReActTrace, KnowledgeGraph, EmbeddingSpace) */
   specialVisualization?: ReactNode | ((currentStep: number) => JSX.Element);
   overviewText?: string;
+  /** Optional animated pipeline diagram rendered above the step explanation */
+  pipelineLayout?: PipelineLayout;
 }
 
 export default function AlgorithmWrapper({
@@ -19,6 +23,7 @@ export default function AlgorithmWrapper({
   codeSnippets,
   specialVisualization,
   overviewText,
+  pipelineLayout,
 }: AlgorithmWrapperProps) {
   const { currentStep, isPlaying, isComplete, play, pause, nextStep, prevStep, setStep } =
     useAnimationStep(demoData.steps);
@@ -97,6 +102,15 @@ export default function AlgorithmWrapper({
             </Fragment>
           ))}
         </div>
+
+        {/* Pipeline diagram — animated node/edge graph, kept outside the AnimatePresence
+            below so its own per-node/edge state persists across step changes instead of
+            unmounting/remounting with the explanation text. */}
+        {pipelineLayout && (
+          <div className="h-[240px] mb-3">
+            <PipelineDiagram layout={pipelineLayout} steps={demoData.steps} currentStep={currentStep} />
+          </div>
+        )}
 
         {/* Step explanation card */}
         <div className="rounded-xl border border-border bg-bg-secondary px-4 py-3.5 mb-3 min-h-[68px]">

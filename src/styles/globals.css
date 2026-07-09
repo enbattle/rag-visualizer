@@ -15,6 +15,9 @@
     --color-text-secondary: 71  85 105;
     --color-text-muted:    148 163 184;
 
+    /* Pipeline diagram — light mode: faint blue schematic dots */
+    --diagram-grid-dot: rgba(37, 99, 235, 0.08);
+
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
@@ -45,6 +48,9 @@
     --color-text-primary:  230 237 243;
     --color-text-secondary: 139 148 158;
     --color-text-muted:    105 115 130;
+
+    /* Pipeline diagram — dark mode: teal schematic dots */
+    --diagram-grid-dot: rgba(20, 184, 166, 0.13);
 
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
@@ -93,10 +99,10 @@
     scrollbar-width: none;
   }
 
-  /* Blueprint dot grid background utility */
-  .blueprint-grid {
-    background-image: radial-gradient(var(--blueprint-dot-color) 1px, transparent 1px);
-    background-size: 22px 22px;
+  /* Pipeline diagram dot grid background utility */
+  .diagram-grid {
+    background-image: radial-gradient(var(--diagram-grid-dot) 1px, transparent 1px);
+    background-size: 20px 20px;
   }
 }
 
@@ -111,6 +117,12 @@
 /* ─── Shiki dual-theme syntax highlighting ──────────────────────────────────
    Light mode uses --shiki-light-* vars; dark mode switches to --shiki-dark-*
    ─────────────────────────────────────────────────────────────────────────── */
+.shiki {
+  padding: 1rem;
+  display: inline-block;
+  min-width: 100%;
+}
+
 .shiki,
 .shiki code {
   color:            var(--shiki-light)         !important;
